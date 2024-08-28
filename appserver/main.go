@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,11 +11,16 @@ import (
 	"time"
 
 	"github.com/ahnlabio/tsm-appserver/config"
+	"github.com/ahnlabio/tsm-appserver/docs"
 	"github.com/ahnlabio/tsm-appserver/handlers"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gitlab.com/Blockdaemon/go-tsm-sdkv2/v64/tsm"
+
+	_ "github.com/ahnlabio/tsm-appserver/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 var tsmStatic1 = tsm.Configuration{URL: "http://localhost:8501"}.WithAPIKeyAuthentication("apikey1")
@@ -22,6 +28,7 @@ var tsmStatic2 = tsm.Configuration{URL: "http://localhost:8502"}.WithAPIKeyAuthe
 
 func main() {
 	godotenv.Load()
+	swagInit()
 	router := getRouter()
 	addMiddlewares(router)
 	runServerApplication(router)
@@ -31,7 +38,11 @@ func getRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/", rootHandler)
+	r.GET("/swagger/*any", func(c *gin.Context) {
+		ginSwagger.WrapHandler(swaggerFiles.Handler)(c)
+	})
 	r.POST("/generateKey", handlers.GenerateKeyHandler)
+	r.POST("/copyKey", handlers.CopyKeyHandler)
 	return r
 }
 
@@ -70,6 +81,23 @@ func runServerApplication(router *gin.Engine) {
 
 	<-ctx.Done()
 	log.Println("Server exiting")
+}
+
+func swagInit() {
+	godotenv.Load()
+	apiHostName := os.Getenv("HOST_NAME")
+	docs.SwaggerInfo.Schemes = []string{"https", "http"}
+	if apiHostName == "" {
+		docs.SwaggerInfo.Schemes = []string{"http"}
+		apiHostName = "localhost:3000"
+	}
+	docs.SwaggerInfo.Host = apiHostName
+	docs.SwaggerInfo.Version = "0.1.0"
+	docs.SwaggerInfo.Description = fmt.Sprintf("ABC Core BTC API v.%s", docs.SwaggerInfo.Version)
+
+	for _, scheme := range docs.SwaggerInfo.Schemes {
+		log.Printf("Swagger API URL: %s://%s/swagger/index.html\n", scheme, docs.SwaggerInfo.Host)
+	}
 }
 
 // @title ABC Core BTC API

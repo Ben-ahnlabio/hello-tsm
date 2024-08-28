@@ -1,0 +1,114 @@
+basePath: /
+definitions:
+  handlers.CopyKeyRequestBody:
+    properties:
+      keyId:
+        example: zUhWR7jvWJoplMyFf35NHSdZXbtx
+        type: string
+      publicKey:
+        example: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2Bk6ZSVUhIStsXZsqyYidPy8vEQvLDVQ/YRgfgowgWFualE748OFoGwuGgE8C7L2zV4gX+1Ow1x/OTjqSSlh5A==
+        type: string
+    required:
+    - keyId
+    - publicKey
+    type: object
+  handlers.CopyResponseBody:
+    properties:
+      sessionId:
+        type: string
+    required:
+    - sessionId
+    type: object
+  handlers.GenerateKeyRequestBody:
+    properties:
+      publicKey:
+        example: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2Bk6ZSVUhIStsXZsqyYidPy8vEQvLDVQ/YRgfgowgWFualE748OFoGwuGgE8C7L2zV4gX+1Ow1x/OTjqSSlh5A==
+        type: string
+    required:
+    - publicKey
+    type: object
+  handlers.GenerateKeyResponseBody:
+    properties:
+      sessionId:
+        type: string
+    required:
+    - sessionId
+    type: object
+  main.RootResponse:
+    properties:
+      build_type:
+        type: string
+      name:
+        type: string
+      time:
+        type: string
+      version:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  description: ABC Core BTC API v0.0.1
+  title: ABC Core BTC API
+  version: 0.0.1
+paths:
+  /:
+    get:
+      consumes:
+      - application/json
+      description: get application info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.RootResponse'
+      summary: Show the application info
+      tags:
+      - info
+  /copyKey:
+    post:
+      consumes:
+      - application/json
+      description: Copy a session key
+      parameters:
+      - description: Public key and key ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CopyKeyRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CopyResponseBody'
+      summary: Copy a session key
+      tags:
+      - session
+  /generateKey:
+    post:
+      consumes:
+      - application/json
+      description: Generate a session key
+      parameters:
+      - description: Public key
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.GenerateKeyRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GenerateKeyResponseBody'
+      summary: Generate a session key
+      tags:
+      - session
+swagger: "2.0"

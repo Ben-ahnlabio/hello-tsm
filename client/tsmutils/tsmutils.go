@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/ahnlabio/tsm-appserver/config"
 	"gitlab.com/Blockdaemon/go-tsm-sdkv2/v64/tsm"
 )
 
@@ -100,21 +99,4 @@ func KeyListing(configs []*tsm.Configuration) {
 		}
 		fmt.Printf("node: %d, keyIDs %v\n", idx, keyIDs)
 	}
-}
-
-func GetClients() []*tsm.Client {
-	appConfig := config.GetConfig()
-	configs := []*tsm.Configuration{
-		tsm.Configuration{URL: appConfig.Node1Url}.WithAPIKeyAuthentication(appConfig.Node1ApiKey),
-		tsm.Configuration{URL: appConfig.Node2Url}.WithAPIKeyAuthentication(appConfig.Node2ApiKey),
-	}
-
-	clients := make([]*tsm.Client, len(configs))
-	for i, config := range configs {
-		var err error
-		if clients[i], err = tsm.NewClient(config); err != nil {
-			panic(err)
-		}
-	}
-	return clients
 }

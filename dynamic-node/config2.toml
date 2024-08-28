@@ -1,0 +1,24 @@
+[Player]
+  Index = 2
+  PrivateKey = "MHcCAQEEIHEzQUbLNHT3dKMG1KGfEvmhXdRflS/awKMy0jlZ2I01oAoGCCqGSM49AwEHoUQDQgAE/t4PfL0KQQAWpZ1q6CikFXw0GeY3lgTUDt8HPT0Bw3kCJ44jIp8QUYZNCNIO/ofZPNwkKi8i1hffK5wheWbJWA=="
+
+[Players.1]
+  Address = "tsm-node1:9001?connectionPoolSize=6&connectionLifetime=5m"
+  PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzsWqmbQ6uG/G7iqAZQXxoReQk0WE6hGw+I8UMyB3Y6jnoEcyefzKklCCEupMWrsV1l79XBRQrvJTxlqMOQ5ahQ=="
+
+[Database]
+    DriverName = "sqlite3"
+    DataSourceName = "/data/tsm_node_2.sqlite"
+    EncryptorMasterPassword = "encryptorMasterPassword2"
+
+[MPCTCPServer]
+  Port = 9002
+
+[SDKServer]
+  Port = 8002
+
+[[Authentication.APIKeys]]
+  APIKey = "FfrI+hyZAiVosAi53wewS0U1SsXKR0AEHZBM088rOeM="  # apikey2
+  ApplicationID = "demoapp"
+
+[DKLS19]

@@ -1,0 +1,48 @@
+version: "3.7"
+
+services:
+
+  tsm-node0:
+    container_name: tsm-node0
+    image: nexus.sepior.net:19001/tsm-node:64.0.0
+    networks:
+      - tsm
+    ports:
+      - "8500:8000"
+      - "9000:9000"
+    environment:
+      - CONFIG_FILE=/config/config.toml
+    volumes:
+      - ./config0.toml:/config/config.toml
+      - ./data:/data
+
+  tsm-node1:
+    container_name: tsm-node1
+    image: nexus.sepior.net:19001/tsm-node:64.0.0
+    networks:
+      - tsm
+    ports:
+      - "8501:8001"
+      - "9001:9001"
+    environment:
+      - CONFIG_FILE=/config/config.toml
+    volumes:
+      - ./config1.toml:/config/config.toml
+      - ./data:/data
+
+  tsm-node2:
+    container_name: tsm-node2
+    image: nexus.sepior.net:19001/tsm-node:64.0.0
+    networks:
+      - tsm
+    ports:
+      - "8502:8002"
+      - "9002:9002"
+    environment:
+      - CONFIG_FILE=/config/config.toml
+    volumes:
+      - ./config2.toml:/config/config.toml
+      - ./data:/data
+
+networks:
+  tsm:

@@ -1,0 +1,25 @@
+[Player]
+	Index = 0
+	PrivateKey = "MHcCAQEEIL7gjAGTs6i7q4eLVfA5FPc9/xobqhjxFOUyGScxsvTVoAoGCCqGSM49AwEHoUQDQgAEkAzm+8yn+d0ypywEwtgNnjisUkXBH17HpOd9YqRDybobqmCuaZA8cqAyLFS/qlu6j7lKCDWBwTElXJgvG9nywQ=="
+
+[Players.1]
+	Address = "tsm-node1:9001?connectionPoolSize=6&connectionLifetime=5m"
+	PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzsWqmbQ6uG/G7iqAZQXxoReQk0WE6hGw+I8UMyB3Y6jnoEcyefzKklCCEupMWrsV1l79XBRQrvJTxlqMOQ5ahQ=="
+
+[Players.2]
+	Address = "tsm-node2:9002?connectionPoolSize=6&connectionLifetime=5m"
+	PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/t4PfL0KQQAWpZ1q6CikFXw0GeY3lgTUDt8HPT0Bw3kCJ44jIp8QUYZNCNIO/ofZPNwkKi8i1hffK5wheWbJWA=="
+  
+[Database]
+	DriverName = "sqlite3"
+	DataSourceName = "/data/tsm_node_mob1.sqlite"
+	EncryptorMasterPassword = "Q3DTN6BVn2OBhmdzG9KXOci5OIgTQObZh23e3D044f6IN2StBDgBP49jJ0X8NPGN"
+
+[SDKServer]
+  Port = 8000
+
+[[Authentication.APIKeys]]
+  APIKey = "IntV2sEZRwwd2F+UkDLC7zmFhwvpxAwb0eQKwdEnSZU="  # apikey0
+  ApplicationID = "demoapp"
+
+[DKLS19]

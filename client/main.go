@@ -22,6 +22,12 @@ var mobile1PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkAzm+8yn+d0ypywEwtgN
 var tsmDynamicMob0 = tsm.Configuration{URL: "http://localhost:8510"}.WithAPIKeyAuthentication("apikey0")
 var tsmDynamicMob1 = tsm.Configuration{URL: "http://localhost:8511"}.WithAPIKeyAuthentication("apikey0")
 
+type TSMNode struct {
+	Config    *tsm.Configuration
+	PublicKey string
+	KeyId     string
+}
+
 type GetKeyResult struct {
 	KeyId         string `json:"keyId"`
 	UserPublicKey string `json:"userPublicKey"`
@@ -32,37 +38,46 @@ type CopyKeyResult struct {
 	UserPublicKey string `json:"userPublicKey"`
 }
 
-type MobileNode struct {
-	Config    *tsm.Configuration
-	PublicKey string
-}
-
 func main() {
 	fmt.Printf("Hello, tsm client.\n")
 
-	genKeyResult := client0GenKey(mobile0PublicKey)
+	var nodes = []TSMNode{
+		{
+			Config:    tsmDynamicMob0,
+			PublicKey: mobile0PublicKey,
+			KeyId:     "",
+		},
+		{
+			Config:    tsmDynamicMob1,
+			PublicKey: mobile1PublicKey,
+			KeyId:     "",
+		},
+	}
+
+	genKeyResult := client0GenKey(nodes[0].PublicKey)
+	nodes[0].KeyId = genKeyResult.KeyId
 	log.Printf("genKeyResult: %v\n", genKeyResult)
 	copyKeyResult := client1CopyKey(mobile1PublicKey, genKeyResult.KeyId)
+	nodes[1].KeyId = copyKeyResult.NewKeyId
 	log.Printf("copyKeyResult: %v\n", copyKeyResult)
 
 	if genKeyResult.UserPublicKey != copyKeyResult.UserPublicKey {
 		panic("User public key mismatch")
 	}
 
-	presignatureIds := preSign(mobile1PublicKey, copyKeyResult.NewKeyId, 1)
-	log.Printf("presignatureIds: %v\n", presignatureIds)
 	message := "Hello, world!"
+
+	presignatureIds := preSign(nodes[1], 1)
+	log.Printf("presignatureIds: %v\n", presignatureIds)
 	messageBytes := []byte(message)
 	msgHash := sha256.Sum256(messageBytes)
-	sig1 := finalizeSign(presignatureIds[0], copyKeyResult.NewKeyId, msgHash[:])
+	sig1 := finalizeSign(nodes[1], presignatureIds[0], msgHash[:])
 	log.Printf("sig1: %s\n", sig1)
 
-	//preSign(mobile0PublicKey, genKeyResult.KeyId, 1)
-	// log.Printf("presignatureIds: %v\n", presignatureIds)
-	// sig2 := finalizeSign(presignatureIds[0], genKeyResult.KeyId, msgHash[:])
-	// if sig1 != sig2 {
-	// 	panic("Signature mismatch")
-	// }
+	presignatureIds = preSign(nodes[0], 1)
+	log.Printf("presignatureIds: %v\n", presignatureIds)
+	sig2 := finalizeSign(nodes[0], presignatureIds[0], msgHash[:])
+	log.Printf("sig1: %s\n", sig2)
 }
 
 func client0GenKey(nodePubKey string) *GetKeyResult {
@@ -136,9 +151,9 @@ func client1CopyKey(nodePubKey string, keyId string) *CopyKeyResult {
 	}
 }
 
-func preSign(publicKey string, keyId string, presignatureCount uint64) []string {
-	sessionId := startGeneratePreSignSignSession(publicKey, keyId)
-	player0PublicTenantKey, err := base64.StdEncoding.DecodeString(publicKey)
+func preSign(node TSMNode, presignatureCount uint64) []string {
+	sessionId := startGeneratePreSignSignSession(node.PublicKey, node.KeyId)
+	player0PublicTenantKey, err := base64.StdEncoding.DecodeString(node.PublicKey)
 	if err != nil {
 		panic(err)
 	}
@@ -147,8 +162,8 @@ func preSign(publicKey string, keyId string, presignatureCount uint64) []string 
 		0: player0PublicTenantKey,
 	}
 	sessionConfig := tsm.NewSessionConfig(sessionId, []int{0, 1, 2}, dynamicPublicKeys)
-	client := tsmutils.GetClientFromConfig(tsmDynamicMob1)
-	preSignatureId, err := client.ECDSA().GeneratePresignatures(context.TODO(), sessionConfig, keyId, presignatureCount)
+	client := tsmutils.GetClientFromConfig(node.Config)
+	preSignatureId, err := client.ECDSA().GeneratePresignatures(context.TODO(), sessionConfig, node.KeyId, presignatureCount)
 	if err != nil {
 		panic(err)
 	}
@@ -157,11 +172,11 @@ func preSign(publicKey string, keyId string, presignatureCount uint64) []string 
 	return preSignatureId
 }
 
-func finalizeSign(preSignatureId string, keyId string, messageHash []byte) string {
+func finalizeSign(node TSMNode, preSignatureId string, messageHash []byte) string {
 
 	byteToStr := base64.StdEncoding.EncodeToString(messageHash)
-	partialSigns := getPartialSignResult(preSignatureId, keyId, byteToStr)
-	client := tsmutils.GetClientFromConfig(tsmDynamicMob1)
+	partialSigns := getPartialSignResult(preSignatureId, node.KeyId, byteToStr)
+	client := tsmutils.GetClientFromConfig(node.Config)
 
 	partialSignatures := make([][]byte, 0)
 	for _, partialSign := range partialSigns {
@@ -172,7 +187,7 @@ func finalizeSign(preSignatureId string, keyId string, messageHash []byte) strin
 		partialSignatures = append(partialSignatures, partialSignBytes)
 	}
 
-	partialSignResult, err := client.ECDSA().SignWithPresignature(context.TODO(), keyId, preSignatureId, nil, messageHash)
+	partialSignResult, err := client.ECDSA().SignWithPresignature(context.TODO(), node.KeyId, preSignatureId, nil, messageHash)
 	if err != nil {
 		panic(err)
 	}

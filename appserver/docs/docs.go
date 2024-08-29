@@ -72,6 +72,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/finalizeSign": {
+            "post": {
+                "description": "Finalize a signature",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Finalize a signature",
+                "parameters": [
+                    {
+                        "description": "Pre-signature ID, message hash, and key ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.FinalizSignRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.FinalizeSignResponseBody"
+                        }
+                    }
+                }
+            }
+        },
         "/generateKey": {
             "post": {
                 "description": "Generate a session key",
@@ -101,6 +135,40 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handlers.GenerateKeyResponseBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/preSign": {
+            "post": {
+                "description": "Pre-sign a message",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Pre-sign a message",
+                "parameters": [
+                    {
+                        "description": "Public key and key ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.PreSignRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.PreSignReponseBody"
                         }
                     }
                 }
@@ -136,6 +204,45 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.FinalizSignRequestBody": {
+            "type": "object",
+            "required": [
+                "keyId",
+                "messageHash",
+                "preSignatureId"
+            ],
+            "properties": {
+                "keyId": {
+                    "type": "string",
+                    "example": "zUhWR7jvWJoplMyFf35NHSdZXbtx"
+                },
+                "messageHash": {
+                    "type": "string",
+                    "example": "zUhWR7jvWJoplMyFf35NHSdZXbtx"
+                },
+                "preSignatureId": {
+                    "type": "string",
+                    "example": "zUhWR7jvWJoplMyFf35NHSdZXbtx"
+                }
+            }
+        },
+        "handlers.FinalizeSignResponseBody": {
+            "type": "object",
+            "required": [
+                "partialSignResult"
+            ],
+            "properties": {
+                "partialSignResult": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"zUhWR7jvWJoplMyFf35NHSdZXbtx\"]"
+                    ]
+                }
+            }
+        },
         "handlers.GenerateKeyRequestBody": {
             "type": "object",
             "required": [
@@ -156,6 +263,34 @@ const docTemplate = `{
             "properties": {
                 "sessionId": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.PreSignReponseBody": {
+            "type": "object",
+            "required": [
+                "sessionId"
+            ],
+            "properties": {
+                "sessionId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.PreSignRequestBody": {
+            "type": "object",
+            "required": [
+                "keyId",
+                "publicKey"
+            ],
+            "properties": {
+                "keyId": {
+                    "type": "string",
+                    "example": "zUhWR7jvWJoplMyFf35NHSdZXbtx"
+                },
+                "publicKey": {
+                    "type": "string",
+                    "example": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2Bk6ZSVUhIStsXZsqyYidPy8vEQvLDVQ/YRgfgowgWFualE748OFoGwuGgE8C7L2zV4gX+1Ow1x/OTjqSSlh5A=="
                 }
             }
         },

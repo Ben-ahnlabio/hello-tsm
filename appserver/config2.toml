@@ -1,10 +1,10 @@
 [Player]
   Index = 2
-  PrivateKey = "MHcCAQEEIHEzQUbLNHT3dKMG1KGfEvmhXdRflS/awKMy0jlZ2I01oAoGCCqGSM49AwEHoUQDQgAE/t4PfL0KQQAWpZ1q6CikFXw0GeY3lgTUDt8HPT0Bw3kCJ44jIp8QUYZNCNIO/ofZPNwkKi8i1hffK5wheWbJWA=="
+  PrivateKey = "{{ env `PLAYER2_PRIVATE_KEY` }}"
 
 [Players.1]
   Address = "tsm-node1:9001?connectionPoolSize=6&connectionLifetime=5m"
-  PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzsWqmbQ6uG/G7iqAZQXxoReQk0WE6hGw+I8UMyB3Y6jnoEcyefzKklCCEupMWrsV1l79XBRQrvJTxlqMOQ5ahQ=="
+  PublicKey = "{{ env `PLAYER1_PUBLIC_KEY` }}"
 
 [Database]
     DriverName = "sqlite3"

@@ -43,6 +43,8 @@ func getRouter() *gin.Engine {
 	})
 	r.POST("/generateKey", handlers.GenerateKeyHandler)
 	r.POST("/copyKey", handlers.CopyKeyHandler)
+	r.POST("/preSign", handlers.PreSignHandler)
+	r.POST("/finalizeSign", handlers.FinalizeSignHandler)
 	return r
 }
 

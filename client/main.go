@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +17,8 @@ import (
 	"gitlab.com/Blockdaemon/go-tsm-sdkv2/v64/tsm"
 )
 
+var mobile0PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2Bk6ZSVUhIStsXZsqyYidPy8vEQvLDVQ/YRgfgowgWFualE748OFoGwuGgE8C7L2zV4gX+1Ow1x/OTjqSSlh5A=="
+var mobile1PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkAzm+8yn+d0ypywEwtgNnjisUkXBH17HpOd9YqRDybobqmCuaZA8cqAyLFS/qlu6j7lKCDWBwTElXJgvG9nywQ=="
 var tsmDynamicMob0 = tsm.Configuration{URL: "http://localhost:8510"}.WithAPIKeyAuthentication("apikey0")
 var tsmDynamicMob1 = tsm.Configuration{URL: "http://localhost:8511"}.WithAPIKeyAuthentication("apikey0")
 
@@ -28,11 +32,13 @@ type CopyKeyResult struct {
 	UserPublicKey string `json:"userPublicKey"`
 }
 
+type MobileNode struct {
+	Config    *tsm.Configuration
+	PublicKey string
+}
+
 func main() {
 	fmt.Printf("Hello, tsm client.\n")
-
-	mobile0PublicKey := "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2Bk6ZSVUhIStsXZsqyYidPy8vEQvLDVQ/YRgfgowgWFualE748OFoGwuGgE8C7L2zV4gX+1Ow1x/OTjqSSlh5A=="
-	mobile1PublicKey := "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkAzm+8yn+d0ypywEwtgNnjisUkXBH17HpOd9YqRDybobqmCuaZA8cqAyLFS/qlu6j7lKCDWBwTElXJgvG9nywQ=="
 
 	genKeyResult := client0GenKey(mobile0PublicKey)
 	log.Printf("genKeyResult: %v\n", genKeyResult)
@@ -42,10 +48,28 @@ func main() {
 	if genKeyResult.UserPublicKey != copyKeyResult.UserPublicKey {
 		panic("User public key mismatch")
 	}
+
+	presignatureIds := preSign(mobile1PublicKey, copyKeyResult.NewKeyId, 1)
+	log.Printf("presignatureIds: %v\n", presignatureIds)
+	message := "Hello, world!"
+	messageBytes := []byte(message)
+	msgHash := sha256.Sum256(messageBytes)
+	sig1 := finalizeSign(presignatureIds[0], copyKeyResult.NewKeyId, msgHash[:])
+	log.Printf("sig1: %s\n", sig1)
+
+	//preSign(mobile0PublicKey, genKeyResult.KeyId, 1)
+	// log.Printf("presignatureIds: %v\n", presignatureIds)
+	// sig2 := finalizeSign(presignatureIds[0], genKeyResult.KeyId, msgHash[:])
+	// if sig1 != sig2 {
+	// 	panic("Signature mismatch")
+	// }
 }
 
 func client0GenKey(nodePubKey string) *GetKeyResult {
-	sessionId := generateKey(nodePubKey)
+	// appserver 에 요청하여 generate key session id 를 가져온다.
+	// session id 가 발급되면 player1 과 player2 가 generate key 대기 상태가 된다.
+	// player0 의 public key 를 player1, player2 에게 알려줘야 한다.
+	sessionId := startGenerateKeySession(nodePubKey)
 	player0PublicTenantKey, err := base64.StdEncoding.DecodeString(nodePubKey)
 	if err != nil {
 		panic(err)
@@ -60,10 +84,14 @@ func client0GenKey(nodePubKey string) *GetKeyResult {
 
 	client := tsmutils.GetClientFromConfig(tsmDynamicMob0)
 	threshold := 1
+
+	// player1, player2 와 함께 generate key 를 실행한다.
 	keyId, err := client.ECDSA().GenerateKey(ctx, sessionConfig, threshold, "secp256k1", "")
 	if err != nil {
 		panic(err)
 	}
+
+	// 완료되면 player 0, 1, 2 가 key share 를 나눠 갖게 된다.
 	log.Printf("keyId: %s\n", keyId)
 	userPubkey := tsmutils.GetPubkeyStringFromClient(client, keyId)
 	log.Printf("userPubkey: %s\n", userPubkey)
@@ -71,7 +99,10 @@ func client0GenKey(nodePubKey string) *GetKeyResult {
 }
 
 func client1CopyKey(nodePubKey string, keyId string) *CopyKeyResult {
-	sessionId := copyKey(nodePubKey, keyId)
+	// appserver 에 요청하여 copy key session id 를 가져온다.
+	// session id 가 player1 과 player2 가 copy key 대기 상태가 된다.
+	// player0 의 public key 를 player1, player2 에게 알려줘야 한다.
+	sessionId := startCopyKeySession(nodePubKey, keyId)
 	player0PublicTenantKey, err := base64.StdEncoding.DecodeString(nodePubKey)
 	if err != nil {
 		panic(err)
@@ -88,15 +119,72 @@ func client1CopyKey(nodePubKey string, keyId string) *CopyKeyResult {
 
 	ctx := context.Background()
 	curveName := "secp256k1"
+
+	// player1, player2 와 함께 copy key 를 실행한다.
 	newKeyId, err := client.ECDSA().CopyKey(ctx, keyCopySessionConfig, "", curveName, newThreshold, "")
 	if err != nil {
 		panic(err)
 	}
+
+	// 완료되면 player 0, 1, 2 가 새로운 key share 를 나눠 갖게 된다.
+	// 기존 키는 그대로 사용이 가능하다.
+	// public key 는 이전에 만들었던 것과 동일하다.
 	userPubkey := tsmutils.GetPubkeyStringFromClient(client, newKeyId)
 	return &CopyKeyResult{
 		NewKeyId:      newKeyId,
 		UserPublicKey: userPubkey,
 	}
+}
+
+func preSign(publicKey string, keyId string, presignatureCount uint64) []string {
+	sessionId := startGeneratePreSignSignSession(publicKey, keyId)
+	player0PublicTenantKey, err := base64.StdEncoding.DecodeString(publicKey)
+	if err != nil {
+		panic(err)
+	}
+
+	dynamicPublicKeys := map[int][]byte{
+		0: player0PublicTenantKey,
+	}
+	sessionConfig := tsm.NewSessionConfig(sessionId, []int{0, 1, 2}, dynamicPublicKeys)
+	client := tsmutils.GetClientFromConfig(tsmDynamicMob1)
+	preSignatureId, err := client.ECDSA().GeneratePresignatures(context.TODO(), sessionConfig, keyId, presignatureCount)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("preSignatureId: %s\n", preSignatureId)
+	return preSignatureId
+}
+
+func finalizeSign(preSignatureId string, keyId string, messageHash []byte) string {
+
+	byteToStr := base64.StdEncoding.EncodeToString(messageHash)
+	partialSigns := getPartialSignResult(preSignatureId, keyId, byteToStr)
+	client := tsmutils.GetClientFromConfig(tsmDynamicMob1)
+
+	partialSignatures := make([][]byte, 0)
+	for _, partialSign := range partialSigns {
+		partialSignBytes, err := base64.StdEncoding.DecodeString(partialSign)
+		if err != nil {
+			panic(err)
+		}
+		partialSignatures = append(partialSignatures, partialSignBytes)
+	}
+
+	partialSignResult, err := client.ECDSA().SignWithPresignature(context.TODO(), keyId, preSignatureId, nil, messageHash)
+	if err != nil {
+		panic(err)
+	}
+
+	partialSignatures = append(partialSignatures, partialSignResult.PartialSignature)
+	signature, err := tsm.ECDSAFinalizeSignature(messageHash, partialSignatures)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Signature:", hex.EncodeToString(signature.ASN1()))
+	return hex.EncodeToString(signature.ASN1())
 }
 
 type GenerateKeyRequestBody struct {
@@ -107,7 +195,7 @@ type GenerateKeyResponse struct {
 	SessionId string `json:"sessionId"`
 }
 
-func generateKey(publicKey string) string {
+func startGenerateKeySession(publicKey string) string {
 
 	url := "http://localhost:3000/generateKey"
 	addrReqBody := GenerateKeyRequestBody{
@@ -156,7 +244,7 @@ type CopyKeyResponse struct {
 	SessionId string `json:"sessionId"`
 }
 
-func copyKey(publicKey string, existingKeyId string) string {
+func startCopyKeySession(publicKey string, existingKeyId string) string {
 	url := "http://localhost:3000/copyKey"
 	addrReqBody := CopyKeyRequestBody{
 		PublicKey: publicKey,
@@ -194,4 +282,106 @@ func copyKey(publicKey string, existingKeyId string) string {
 	}
 
 	return resObj.SessionId
+}
+
+type PreSignRequestBody struct {
+	PublicKey string `json:"publicKey"`
+	KeyId     string `json:"keyId"`
+}
+
+type PreSignResponse struct {
+	SessionId string `json:"sessionId"`
+}
+
+func startGeneratePreSignSignSession(publicKey string, keyId string) string {
+	url := "http://localhost:3000/preSign"
+	addrReqBody := PreSignRequestBody{
+		PublicKey: publicKey,
+		KeyId:     keyId,
+	}
+	value, _ := json.Marshal(addrReqBody)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(value))
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("User-Agent", "ABC")
+
+	client := &http.Client{Timeout: time.Duration(3000) * time.Millisecond}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		panic(fmt.Errorf("failed to get session id. status code: %d", resp.StatusCode))
+	}
+
+	var resObj PreSignResponse
+	err = json.Unmarshal(body, &resObj)
+	if err != nil {
+		panic(err)
+	}
+
+	return resObj.SessionId
+}
+
+type GetPartialSizeResultRequestBody struct {
+	PreSignatureId string `json:"preSignatureId"`
+	KeyId          string `json:"keyId"`
+	MessageHash    string `json:"messageHash"`
+}
+
+type GetPartialSignResultResponse struct {
+	PartialSignResult []string `json:"partialSignResult" binding:"required" example:"[\"zUhWR7jvWJoplMyFf35NHSdZXbtx\"]"`
+}
+
+func getPartialSignResult(preSignatureId string, keyId string, messageHash string) []string {
+	url := "http://localhost:3000/finalizeSign"
+	addrReqBody := GetPartialSizeResultRequestBody{
+		PreSignatureId: preSignatureId,
+		KeyId:          keyId,
+		MessageHash:    messageHash,
+	}
+	value, _ := json.Marshal(addrReqBody)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(value))
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("User-Agent", "ABC")
+
+	client := &http.Client{Timeout: time.Duration(3000) * time.Millisecond}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		panic(fmt.Errorf("failed to get session id. status code: %d", resp.StatusCode))
+	}
+
+	var resObj GetPartialSignResultResponse
+	err = json.Unmarshal(body, &resObj)
+	if err != nil {
+		panic(err)
+	}
+
+	return resObj.PartialSignResult
 }

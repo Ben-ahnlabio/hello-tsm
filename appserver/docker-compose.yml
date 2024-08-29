@@ -1,5 +1,3 @@
-version: "3.7"
-
 services:
   tsm-node1:
     container_name: tsm-node1
@@ -14,6 +12,8 @@ services:
     volumes:
       - ./config1.toml:/config/config.toml
       - ./data:/data
+    env_file:
+      - .env.node
 
   tsm-node2:
     container_name: tsm-node2
@@ -28,6 +28,8 @@ services:
     volumes:
       - ./config2.toml:/config/config.toml
       - ./data:/data
+    env_file:
+      - .env.node
 
 networks:
   tsm_external:

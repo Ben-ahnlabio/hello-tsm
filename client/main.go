@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -54,30 +53,58 @@ func main() {
 		},
 	}
 
+	// dynamic0 TSM 키 생성
 	genKeyResult := client0GenKey(nodes[0].PublicKey)
 	nodes[0].KeyId = genKeyResult.KeyId
 	log.Printf("genKeyResult: %v\n", genKeyResult)
+
+	// dynamic1 로 TSM 키 복사
 	copyKeyResult := client1CopyKey(mobile1PublicKey, genKeyResult.KeyId)
 	nodes[1].KeyId = copyKeyResult.NewKeyId
 	log.Printf("copyKeyResult: %v\n", copyKeyResult)
 
+	// public key 가 같은지 확인
 	if genKeyResult.UserPublicKey != copyKeyResult.UserPublicKey {
 		panic("User public key mismatch")
 	}
 
 	message := "Hello, world!"
 
+	// dynamic node1 message 에 서명
 	presignatureIds := preSign(nodes[1], 1)
 	log.Printf("presignatureIds: %v\n", presignatureIds)
 	messageBytes := []byte(message)
 	msgHash := sha256.Sum256(messageBytes)
 	sig1 := finalizeSign(nodes[1], presignatureIds[0], msgHash[:])
-	log.Printf("sig1: %s\n", sig1)
 
+	client0 := tsmutils.GetClientFromConfig(nodes[1].Config)
+	pubKey0, err := client0.ECDSA().PublicKey(context.TODO(), nodes[1].KeyId, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	// verify signature node1
+	node1Err := tsm.ECDSAVerifySignature(pubKey0, msgHash[:], sig1.ASN1())
+	if node1Err != nil {
+		panic(node1Err)
+	}
+
+	// dynamic node0 message 에 서명
 	presignatureIds = preSign(nodes[0], 1)
 	log.Printf("presignatureIds: %v\n", presignatureIds)
 	sig2 := finalizeSign(nodes[0], presignatureIds[0], msgHash[:])
-	log.Printf("sig1: %s\n", sig2)
+
+	client1 := tsmutils.GetClientFromConfig(nodes[0].Config)
+	pubKey1, err := client1.ECDSA().PublicKey(context.TODO(), nodes[0].KeyId, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	// verify signature node0
+	node0Err := tsm.ECDSAVerifySignature(pubKey1, msgHash[:], sig2.ASN1())
+	if node0Err != nil {
+		panic(node0Err)
+	}
 }
 
 func client0GenKey(nodePubKey string) *GetKeyResult {
@@ -172,7 +199,7 @@ func preSign(node TSMNode, presignatureCount uint64) []string {
 	return preSignatureId
 }
 
-func finalizeSign(node TSMNode, preSignatureId string, messageHash []byte) string {
+func finalizeSign(node TSMNode, preSignatureId string, messageHash []byte) *tsm.ECDSASignature {
 
 	byteToStr := base64.StdEncoding.EncodeToString(messageHash)
 	partialSigns := getPartialSignResult(preSignatureId, node.KeyId, byteToStr)
@@ -198,8 +225,7 @@ func finalizeSign(node TSMNode, preSignatureId string, messageHash []byte) strin
 		panic(err)
 	}
 
-	fmt.Println("Signature:", hex.EncodeToString(signature.ASN1()))
-	return hex.EncodeToString(signature.ASN1())
+	return signature
 }
 
 type GenerateKeyRequestBody struct {
